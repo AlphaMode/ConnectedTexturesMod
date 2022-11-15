@@ -5,11 +5,13 @@ import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Lists;
 import com.google.common.collect.MultimapBuilder;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicReference;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.annotation.ParametersAreNonnullByDefault;
 
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
+import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.mojang.blaze3d.vertex.VertexFormat;
 import com.mojang.blaze3d.vertex.VertexFormatElement;
 import com.mojang.math.Vector3f;
@@ -25,8 +27,7 @@ import net.minecraft.client.renderer.texture.TextureAtlas;
 import net.minecraft.client.renderer.texture.TextureAtlasSprite;
 import net.minecraft.core.Direction;
 import net.minecraft.world.phys.Vec2;
-import net.minecraftforge.client.model.pipeline.BakedQuadBuilder;
-import net.minecraftforge.client.model.pipeline.IVertexConsumer;
+import net.minecraftforge.client.model.pipeline.QuadBakingVertexConsumer;
 import org.apache.commons.lang3.tuple.Pair;
 import team.chisel.ctm.api.texture.ISubmap;
 import team.chisel.ctm.api.util.NonnullType;
@@ -415,12 +416,12 @@ public class Quad {
     @SuppressWarnings("null")
     public BakedQuad rebake() {
         @Nonnull VertexFormat format = this.builder.vertexFormat;
-        
-        BakedQuadBuilder builder = new BakedQuadBuilder();
-        builder.setQuadOrientation(this.builder.quadOrientation);
-        builder.setQuadTint(this.builder.quadTint);
-        builder.setApplyDiffuseLighting(this.builder.applyDiffuseLighting);
-        builder.setTexture(this.uvs.getSprite());
+        AtomicReference<BakedQuad> quad = new AtomicReference<>();
+        QuadBakingVertexConsumer builder = new QuadBakingVertexConsumer(quad::set);
+        builder.setDirection(this.builder.quadOrientation);
+        builder.setTintIndex(this.builder.quadTint);
+        builder.setShade(this.builder.applyDiffuseLighting);
+        builder.setSprite(this.uvs.getSprite());
 
         for (int v = 0; v < 4; v++) {
             for (int i = 0; i < format.getElements().size(); i++) {
@@ -428,7 +429,7 @@ public class Quad {
                 switch (ele.getUsage()) {
                 case POSITION:
                     Vector3f p = vertPos[v];
-                    builder.put(i, p.x(), p.y(), p.z(), 1);
+                    builder.vertex(p.x(), p.y(), p.z());
                     break;
                 /*case COLOR:
                     builder.put(i, 35, 162, 204); Pretty things
@@ -436,21 +437,21 @@ public class Quad {
                 case UV:
                     if (ele.getIndex() == 2) {
                         //Stuff for fullbright
-                        builder.put(i, ((float) blocklight * 0x20) / 0xFFFF, ((float) skylight * 0x20) / 0xFFFF);
+                        builder.uv(((float) blocklight * 0x20) / 0xFFFF, ((float) skylight * 0x20) / 0xFFFF);
                         break;
                     } else if (ele.getIndex() == 0) {
                         Vec2 uv = vertUv[v];
-                        builder.put(i, uv.x, uv.y);
+                        builder.uv(uv.x, uv.y);
                         break;
                     }
                     // fallthrough
                 default:
-                    builder.put(i, this.builder.data.get(ele).get(v));
+                    builder.misc(ele, this.builder.data.get(ele).get(v));
                 }
             }
         }
 
-        return builder.build();
+        return quad.get();
     }
     
     public Quad transformUVs(TextureAtlasSprite sprite) {
@@ -481,7 +482,7 @@ public class Quad {
     }
     
     @RequiredArgsConstructor
-    public static class Builder implements IVertexConsumer {
+    public static class Builder implements VertexConsumer {
 
         @Getter
         private final VertexFormat vertexFormat;
@@ -497,10 +498,10 @@ public class Quad {
         @Setter
         private boolean applyDiffuseLighting;
         
-        private ListMultimap<VertexFormatElement, float[]> data = MultimapBuilder.hashKeys().arrayListValues().build();
+        private ListMultimap<VertexFormatElement, Integer[]> data = MultimapBuilder.hashKeys().arrayListValues().build();
         
         @Override
-        public void put(int element, @Nullable float... data) {
+        public void misc(int element, @Nullable int... data) {
             if (data == null) return;
             float[] copy = new float[data.length];
             System.arraycopy(data, 0, copy, 0, data.length);

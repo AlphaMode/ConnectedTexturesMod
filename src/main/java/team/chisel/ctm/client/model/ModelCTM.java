@@ -11,12 +11,6 @@ import com.mojang.datafixers.util.Pair;
 import it.unimi.dsi.fastutil.ints.Int2ObjectArrayMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
-import java.io.IOException;
-import java.util.*;
-import java.util.function.Function;
-import java.util.stream.Collectors;
-import javax.annotation.Nullable;
-
 import net.minecraft.client.renderer.RenderType;
 import net.minecraft.client.renderer.block.model.BlockElementFace;
 import net.minecraft.client.renderer.block.model.BlockModel;
@@ -27,7 +21,7 @@ import net.minecraft.client.renderer.texture.TextureAtlasSprite;
 import net.minecraft.client.resources.model.*;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.level.block.state.BlockState;
-import net.minecraftforge.client.model.IModelConfiguration;
+import net.minecraftforge.client.model.geometry.IGeometryBakingContext;
 import team.chisel.ctm.api.model.IModelCTM;
 import team.chisel.ctm.api.texture.ICTMTexture;
 import team.chisel.ctm.api.util.TextureInfo;
@@ -37,6 +31,12 @@ import team.chisel.ctm.client.texture.type.TextureTypeNormal;
 import team.chisel.ctm.client.util.BlockRenderLayer;
 import team.chisel.ctm.client.util.CTMPackReloadListener;
 import team.chisel.ctm.client.util.ResourceUtil;
+
+import javax.annotation.Nullable;
+import java.io.IOException;
+import java.util.*;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 public class ModelCTM implements IModelCTM {
     
@@ -93,7 +93,7 @@ public class ModelCTM implements IModelCTM {
 	}
 
 	@Override
-	public Collection<Material> getTextures(IModelConfiguration owner, Function<ResourceLocation, UnbakedModel> modelGetter, Set<Pair<String, String>> missingTextureErrors) {
+	public Collection<Material> getMaterials(IGeometryBakingContext context, Function<ResourceLocation, UnbakedModel> modelGetter, Set<Pair<String, String>> missingTextureErrors) {
 		List<Material> ret = textureDependencies.stream()
 				.map(rl -> new Material(TextureAtlas.LOCATION_BLOCKS, rl))
     			.collect(Collectors.toList());
@@ -116,7 +116,7 @@ public class ModelCTM implements IModelCTM {
     }
 	
 	@Override
-	public BakedModel bake(IModelConfiguration owner, ModelBakery bakery, Function<Material, TextureAtlasSprite> spriteGetter, ModelState modelTransform, ItemOverrides itemOverrides, ResourceLocation modelLocation) {
+	public BakedModel bake(IGeometryBakingContext owner, ModelBakery bakery, Function<Material, TextureAtlasSprite> spriteGetter, ModelState modelTransform, ItemOverrides itemOverrides, ResourceLocation modelLocation) {
 		return bake(bakery, spriteGetter, modelTransform, modelLocation);
 	}
 	
@@ -134,7 +134,7 @@ public class ModelCTM implements IModelCTM {
     }
 	
 	public void initializeTextures(ModelBakery bakery, Function<Material, TextureAtlasSprite> spriteGetter) {
-		for (Material m : getTextures(null, bakery::getModel, new HashSet<>())) {
+		for (Material m : getMaterials(null, bakery::getModel, new HashSet<>())) {
 		    TextureAtlasSprite sprite = spriteGetter.apply(m);
 		    IMetadataSectionCTM chiselmeta = null;
 		    try {

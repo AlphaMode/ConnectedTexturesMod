@@ -11,6 +11,8 @@ import java.util.function.Predicate;
 
 import javax.annotation.Nullable;
 
+import net.minecraft.core.Holder;
+import net.minecraftforge.client.event.RegisterParticleProvidersEvent;
 import org.apache.commons.lang3.tuple.Pair;
 
 import com.google.common.collect.Maps;
@@ -32,17 +34,15 @@ import net.minecraft.util.profiling.ProfilerFiller;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.LeavesBlock;
 import net.minecraft.world.level.block.state.BlockState;
-import net.minecraftforge.client.event.ParticleFactoryRegisterEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.util.ObfuscationReflectionHelper;
 import net.minecraftforge.registries.ForgeRegistries;
-import net.minecraftforge.registries.IRegistryDelegate;
 import team.chisel.ctm.client.model.AbstractCTMBakedModel;
 
 public class CTMPackReloadListener extends SimplePreparableReloadListener<Unit> {
     
     @SubscribeEvent
-    public void onParticleFactoryRegister(ParticleFactoryRegisterEvent event) {
+    public void onParticleFactoryRegister(RegisterParticleProvidersEvent event) {
         // Apparently this is the only event that is posted after other resource loaders are registered, but before
         // the reload begins. We must register here to be AFTER model baking.
         ((ReloadableResourceManager)Minecraft.getInstance().getResourceManager()).registerReloadListener(this);
@@ -61,7 +61,7 @@ public class CTMPackReloadListener extends SimplePreparableReloadListener<Unit> 
         refreshLayerHacks();
     }
 
-    private static final Map<IRegistryDelegate<Block>, Predicate<RenderType>> blockRenderChecks = Maps.newHashMap();
+    private static final Map<Holder.Reference<Block>, Predicate<RenderType>> blockRenderChecks = Maps.newHashMap();
 
     private void refreshLayerHacks() {
         blockRenderChecks.forEach((b, p) -> ItemBlockRenderTypes.setRenderLayer(b.get(), p));
@@ -72,7 +72,7 @@ public class CTMPackReloadListener extends SimplePreparableReloadListener<Unit> 
             Predicate<RenderType> predicate = getLayerCheck(state, Minecraft.getInstance().getModelManager().getBlockModelShaper().getBlockModel(state));
 
             if (predicate != null) {
-                blockRenderChecks.put(block.delegate, getExistingRenderCheck(block));
+                blockRenderChecks.put(block.builtInRegistryHolder(), getExistingRenderCheck(block));
                 ItemBlockRenderTypes.setRenderLayer(block, predicate);
             }
         }
@@ -129,7 +129,7 @@ public class CTMPackReloadListener extends SimplePreparableReloadListener<Unit> 
 
     private Predicate<RenderType> getExistingRenderCheck(Block block) {
         try {
-            return ((Map<IRegistryDelegate<Block>, Predicate<RenderType>>) _blockRenderChecks.get(null)).get(block.delegate);
+            return ((Map<Holder.Reference<Block>, Predicate<RenderType>>) _blockRenderChecks.get(null)).get(block.builtInRegistryHolder());
         } catch (IllegalArgumentException | IllegalAccessException e) {
             throw new RuntimeException(e);
         }
@@ -146,7 +146,7 @@ public class CTMPackReloadListener extends SimplePreparableReloadListener<Unit> 
         } else {
             java.util.function.Predicate<RenderType> rendertype;
             synchronized (ItemBlockRenderTypes.class) {
-                rendertype = blockRenderChecks.get(block.delegate);
+                rendertype = blockRenderChecks.get(block.builtInRegistryHolder());
             }
             return rendertype != null ? rendertype.test(type) : type == RenderType.solid();
         }

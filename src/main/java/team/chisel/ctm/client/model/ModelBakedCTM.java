@@ -21,8 +21,9 @@ import net.minecraft.client.renderer.block.model.ItemTransforms;
 import net.minecraft.client.renderer.texture.TextureAtlasSprite;
 import net.minecraft.client.resources.model.BakedModel;
 import net.minecraft.core.Direction;
+import net.minecraft.util.RandomSource;
 import net.minecraft.world.level.block.state.BlockState;
-import net.minecraftforge.client.model.data.EmptyModelData;
+import net.minecraftforge.client.model.data.ModelData;
 import team.chisel.ctm.api.model.IModelCTM;
 import team.chisel.ctm.api.texture.ICTMTexture;
 import team.chisel.ctm.api.texture.ITextureContext;
@@ -40,7 +41,7 @@ public class ModelBakedCTM extends AbstractCTMBakedModel {
     private static final Direction[] FACINGS = ObjectArrays.concat(Direction.values(), (Direction) null);
 
     @Override
-    protected AbstractCTMBakedModel createModel(@Nullable BlockState state, IModelCTM model, BakedModel parent, @Nullable RenderContextList ctx, Random rand) {
+    protected AbstractCTMBakedModel createModel(@Nullable BlockState state, IModelCTM model, BakedModel parent, @Nullable RenderContextList ctx, RandomSource rand) {
         while (parent instanceof ModelBakedCTM castParent) {
             parent = castParent.getParent(rand);
         }
@@ -94,15 +95,15 @@ public class ModelBakedCTM extends AbstractCTMBakedModel {
 
     @Override
     public @Nonnull TextureAtlasSprite getParticleIcon() {
-        return Optional.ofNullable(getModel().getTexture(getParent().getParticleIcon(EmptyModelData.INSTANCE).getName()))
+        return Optional.ofNullable(getModel().getTexture(getParent().getParticleIcon(ModelData.EMPTY).getName()))
                 .map(ICTMTexture::getParticle)
-                .orElse(getParent().getParticleIcon(EmptyModelData.INSTANCE));
+                .orElse(getParent().getParticleIcon(ModelData.EMPTY));
     }
     
     @Override
-    public BakedModel handlePerspective(ItemTransforms.TransformType cameraTransformType, PoseStack poseStack) {
+    public BakedModel applyTransform(ItemTransforms.TransformType cameraTransformType, PoseStack poseStack, boolean applyLeftHandTransform) {
     	// FIXME this won't work if parent returns a different model (shouldn't happen for vanilla)
-    	getParent().handlePerspective(cameraTransformType, poseStack);
+    	getParent().applyTransform(cameraTransformType, poseStack, applyLeftHandTransform);
     	return this;
     }
 }
